@@ -27,7 +27,7 @@ class FirestoreService {
     });
   }
 
-  // 3. Salva nuova segnalazione su Firestore
+  // Salva nuova segnalazione su Firestore
   Future<void> addPriceReport(PriceReport report) async {
     await _db.collection('price_reports').add(report.toMap());
   }
