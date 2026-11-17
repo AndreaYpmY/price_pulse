@@ -10,7 +10,12 @@ class PreferencesService {
   static const String _keyLanguage = 'language_code';
 
   static const Set<String> _stopWords = {
-    'di', 'del', 'della', 'dei', 'degli', 'al', 'alla', 'con', 'per', 'in', 'da', 'il', 'la', 'le', 'un', 'una'
+    'il', 'lo', 'la', 'i', 'gli', 'le',
+    'un', 'uno', 'una',
+    'di', 'a', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra',
+    'al', 'allo', 'alla', 'ai', 'agli', 'alle',
+    'del', 'dello', 'della', 'dei', 'degli', 'delle',
+    'e', 'ed', 'o',
   };
 
   // Pulisce testo da Pasta di Barilla 500g diventa {"pasta","barilla","500g"}
