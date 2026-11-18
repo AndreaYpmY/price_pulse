@@ -43,5 +43,7 @@
   "all_fields_required": "Compila tutti i campi obbligatori",
   "location_disabled": "Servizi di localizzazione disattivati",
   "location_denied": "Permesso di localizzazione negato",
-  "location_permanently_denied": "Permesso GPS negato permanentemente dalle impostazioni"
+  "location_permanently_denied": "Permesso GPS negato permanentemente dalle impostazioni",
+  "price_drop": "In calo",
+  "price_rise": "In aumento"
 }
