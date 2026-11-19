@@ -11,7 +11,6 @@ import '../services/location_service.dart';
 import '../services/notification_service.dart';
 import '../services/preferences_service.dart';
 
-
 // SERVICE PROVIDERS (Singleton)
 final firestoreServiceProvider = Provider<FirestoreService>((ref) => FirestoreService());
 final geminiServiceProvider = Provider<GeminiService>((ref) => GeminiService());
@@ -22,101 +21,99 @@ final preferencesServiceProvider = Provider<PreferencesService>((ref) => Prefere
 // ----------------------------------------------------------------------------------------------------
 
 // DATA STREAM PROVIDERS (Firestore)
-final storesProvider = StreamProvider<List<Store>>((ref) {  // supermercati salvati in tempo reale
+final storesProvider = StreamProvider<List<Store>>((ref) {
   return ref.watch(firestoreServiceProvider).getStoresStream();
 });
 
-final priceReportsProvider = StreamProvider<List<PriceReport>>((ref) {  // prezzi  salvati in tempo reale
+final priceReportsProvider = StreamProvider<List<PriceReport>>((ref) {
   return ref.watch(firestoreServiceProvider).getReportsStream();
 });
 
 // ----------------------------------------------------------------------------------------------------
 
 // LOCATION PROVIDER
-final userLocationProvider = FutureProvider<Position?>((ref) async {  // posizione GPS attuale
+final userLocationProvider = FutureProvider<Position?>((ref) async {
   return ref.watch(locationServiceProvider).getCurrentPosition();
 });
 
 // ----------------------------------------------------------------------------------------------------
 
 // SETTINGS & HABITS NOTIFIERS (Tema, Lingua e Cronologia Abituali)
-class ThemeModeNotifier extends StateNotifier<ThemeMode> {    //  TEMA (chiaro/scuro)
+class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   final PreferencesService _prefs;
 
   ThemeModeNotifier(this._prefs) : super(ThemeMode.light) {
-    _load(); // default chiaro
+    _load();
   }
 
-  Future<void> _load() async {  // vedo se aveva impostato dark mode
+  Future<void> _load() async {
     final isDark = await _prefs.isDarkMode();
     state = isDark ? ThemeMode.dark : ThemeMode.light;
   }
 
-  Future<void> toggleTheme() async {  // switch tema
+  Future<void> toggleTheme() async {
     final nextIsDark = state != ThemeMode.dark;
     state = nextIsDark ? ThemeMode.dark : ThemeMode.light;
     await _prefs.setDarkMode(nextIsDark);
   }
 }
-// ------------
 
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) { // provider del tema
+final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
   return ThemeModeNotifier(ref.watch(preferencesServiceProvider));
 });
 
-class LocaleNotifier extends StateNotifier<Locale> {  // LINGUA
+class LocaleNotifier extends StateNotifier<Locale> {
   final PreferencesService _prefs;
 
   LocaleNotifier(this._prefs) : super(const Locale('it')) {
-    _load();  // default italiano
+    _load();
   }
 
-  Future<void> _load() async {  // vedo se aveva impostato la lingua
+  Future<void> _load() async {
     final code = await _prefs.getLanguageCode();
     state = Locale(code);
   }
 
-  Future<void> setLanguage(String code) async { // cambio lingua
+  Future<void> setLanguage(String code) async {
     state = Locale(code);
     await _prefs.setLanguageCode(code);
   }
 }
-// ------------
 
-final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {  // provider lingua
+final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {
   return LocaleNotifier(ref.watch(preferencesServiceProvider));
 });
 
-class HabitualProductsNotifier extends StateNotifier<ProductCounts> { // PRODOTTI ABITUALI
+class HabitualProductsNotifier extends StateNotifier<ProductCounts> {
   final PreferencesService _prefs;
 
   HabitualProductsNotifier(this._prefs) : super({}) {
-    refresh(); // mappa vuota inizialmente
+    refresh();
   }
 
-  Future<void> refresh() async { // leggo dal telefono la mappa aggiornata
+  Future<void> refresh() async {
     state = await _prefs.getProductCounts();
   }
 
-  Future<void> recordInteraction(String productName) async { // aumenta contatore prodotto
+  Future<void> recordInteraction(String productName) async {
     await _prefs.recordProductInteraction(productName);
     await refresh();
   }
 
-  Future<void> clearHistory() async { // cancella history
+  Future<void> clearHistory() async {
     await _prefs.clearHistory();
     state = {};
   }
 }
 
-final habitualProductsProvider = StateNotifierProvider<HabitualProductsNotifier, ProductCounts>((ref) { // provider prodotti abituali
+final habitualProductsProvider = StateNotifierProvider<HabitualProductsNotifier, ProductCounts>((ref) {
   return HabitualProductsNotifier(ref.watch(preferencesServiceProvider));
 });
 
 // ----------------------------------------------------------------------------------------------------
 
-// CONTEXT-AWARE ENGINE (Posizione + Tempo + Abitudini)
-enum ContextType { inStore, shoppingDay, habitualDeals, general } // 4 possibili situazioni
+// CONTEXT-AWARE ENGINE (Spazio + Tempo)
+enum ContextType { inStore, shoppingDay, general }
 
 class UserContextState {
   final ContextType type;
@@ -130,11 +127,10 @@ class UserContextState {
   });
 }
 
-final userContextProvider = Provider<UserContextState>((ref) { // calcolare contesto attuale
+final userContextProvider = Provider<UserContextState>((ref) {
   final positionAsync = ref.watch(userLocationProvider);
   final storesAsync = ref.watch(storesProvider);
   final locationService = ref.watch(locationServiceProvider);
-  final habitualCounts = ref.watch(habitualProductsProvider);
 
   final position = positionAsync.value;
   final stores = storesAsync.value ?? [];
@@ -144,7 +140,7 @@ final userContextProvider = Provider<UserContextState>((ref) { // calcolare cont
     Store? closestStore;
     double minDistance = double.infinity;
 
-    for (final store in stores) { // supermercato più vicino
+    for (final store in stores) {
       final dist = locationService.calculateDistanceMeters(
         position.latitude,
         position.longitude,
@@ -157,7 +153,7 @@ final userContextProvider = Provider<UserContextState>((ref) { // calcolare cont
       }
     }
 
-    if (closestStore != null && minDistance <= 150) { // supermercato se è a 150metri
+    if (closestStore != null && minDistance <= 150) {
       return UserContextState(
         type: ContextType.inStore,
         nearbyStore: closestStore,
@@ -166,17 +162,12 @@ final userContextProvider = Provider<UserContextState>((ref) { // calcolare cont
     }
   }
 
-  // Regola 2 (Contesto Storico): L'utente ha già prodotti abituali salvati
-  if (habitualCounts.isNotEmpty) {
-    return const UserContextState(type: ContextType.habitualDeals);
-  }
-
-  // Regola 3 (Tempo): Sabato o Venerdì pomeriggio (giorni tipici di spesa)
+  // Regola 2 (Tempo): Sabato o Venerdì pomeriggio (giorni tipici di spesa)
   final now = DateTime.now();
-  if (now.weekday == DateTime.saturday || (now.weekday == DateTime.friday && now.hour >= 16)) {
+  if (now.weekday == DateTime.saturday ||
+      (now.weekday == DateTime.friday && now.hour >= 16)) {
     return const UserContextState(type: ContextType.shoppingDay);
   }
 
   return const UserContextState(type: ContextType.general);
 });
-

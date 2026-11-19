@@ -50,3 +50,7 @@ app.*.map.json
 
 # Chiavi API e file di ambiente
 .env
+
+# Chiavi API locali
+config/secrets.json
+
