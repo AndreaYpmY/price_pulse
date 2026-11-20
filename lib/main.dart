@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'UI/pages/main_layout.dart';
 import 'UI/utility/app_localizations.dart';
 import 'UI/utility/app_theme.dart';
+import 'UI/utility/constants.dart';
 import 'firebase_options.dart';
 import 'model/providers/providers.dart';
 import 'model/services/notification_service.dart';
@@ -49,7 +50,7 @@ class PricePulseApp extends ConsumerWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'PricePulse',
+      title: Constants.appName,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,

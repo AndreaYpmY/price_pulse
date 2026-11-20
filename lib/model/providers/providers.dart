@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../UI/utility/constants.dart';
 import '../objects/price_report.dart';
 import '../objects/store.dart';
 import '../services/firestore_service.dart';
@@ -84,10 +85,31 @@ final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {
   return LocaleNotifier(ref.watch(preferencesServiceProvider));
 });
 
-class HabitualProductsNotifier extends StateNotifier<ProductCounts> {
+class HabitualStoresNotifier extends StateNotifier<StoreCounts> { // Supermercati
   final PreferencesService _prefs;
 
-  HabitualProductsNotifier(this._prefs) : super({}) {
+  HabitualStoresNotifier(this._prefs) : super({}) {
+    refresh();
+  }
+
+  Future<void> refresh() async {
+    state = await _prefs.getStoreCounts();
+  }
+
+  void resetState() {
+    state = {};
+  }
+}
+
+final habitualStoresProvider = StateNotifierProvider<HabitualStoresNotifier, StoreCounts>((ref) {
+  return HabitualStoresNotifier(ref.watch(preferencesServiceProvider));
+});
+
+class HabitualProductsNotifier extends StateNotifier<ProductCounts> { // Prodotti
+  final PreferencesService _prefs;
+  final Ref _ref;
+
+  HabitualProductsNotifier(this._prefs, this._ref) : super({}) {
     refresh();
   }
 
@@ -95,24 +117,33 @@ class HabitualProductsNotifier extends StateNotifier<ProductCounts> {
     state = await _prefs.getProductCounts();
   }
 
-  Future<void> recordInteraction(String productName) async {
+  Future<void> recordInteraction(String productName, {String? storeId}) async {
     await _prefs.recordProductInteraction(productName);
     await refresh();
+
+    if (storeId != null && storeId.trim().isNotEmpty) {
+      await _prefs.recordStoreInteraction(storeId);
+      await _ref.read(habitualStoresProvider.notifier).refresh();
+    }
   }
 
   Future<void> clearHistory() async {
     await _prefs.clearHistory();
     state = {};
+    _ref.read(habitualStoresProvider.notifier).resetState();
   }
 }
 
 final habitualProductsProvider = StateNotifierProvider<HabitualProductsNotifier, ProductCounts>((ref) {
-  return HabitualProductsNotifier(ref.watch(preferencesServiceProvider));
+  return HabitualProductsNotifier(
+    ref.watch(preferencesServiceProvider),
+    ref,
+  );
 });
 
 // ----------------------------------------------------------------------------------------------------
 
-// CONTEXT-AWARE ENGINE (Spazio + Tempo)
+// CONTEXT-AWARE
 enum ContextType { inStore, shoppingDay, general }
 
 class UserContextState {
@@ -153,7 +184,7 @@ final userContextProvider = Provider<UserContextState>((ref) {
       }
     }
 
-    if (closestStore != null && minDistance <= 150) {
+    if (closestStore != null && minDistance <= Constants.inStoreRadiusMeters) {
       return UserContextState(
         type: ContextType.inStore,
         nearbyStore: closestStore,
@@ -165,7 +196,7 @@ final userContextProvider = Provider<UserContextState>((ref) {
   // Regola 2 (Tempo): Sabato o Venerdì pomeriggio (giorni tipici di spesa)
   final now = DateTime.now();
   if (now.weekday == DateTime.saturday ||
-      (now.weekday == DateTime.friday && now.hour >= 16)) {
+      (now.weekday == DateTime.friday && now.hour >= Constants.fridayShoppingStartHour)) {
     return const UserContextState(type: ContextType.shoppingDay);
   }
 

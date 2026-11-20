@@ -1,34 +1,32 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:price_pulse/UI/utility/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 typedef ProductCounts = Map<String, int>;
+typedef StoreCounts = Map<String, int>;
 
 class PreferencesService {
   static const String _keyProductCounts = 'habitual_product_counts';
+  static const String _keyStoreCounts = 'habitual_store_counts';
   static const String _keyDarkMode = 'is_dark_mode';
   static const String _keyLanguage = 'language_code';
 
-  static const Set<String> _stopWords = {
-    'il', 'lo', 'la', 'i', 'gli', 'le',
-    'un', 'uno', 'una',
-    'di', 'a', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra',
-    'al', 'allo', 'alla', 'ai', 'agli', 'alle',
-    'del', 'dello', 'della', 'dei', 'degli', 'delle',
-    'e', 'ed', 'o',
-  };
 
-  // Pulisce testo da Pasta di Barilla 500g diventa {"pasta","barilla","500g"}
+  // Pulisce testo: da "Pasta di Barilla 500g" diventa {"pasta", "barilla", "500g"}
   Set<String> _extractKeywords(String productName) {
-    return productName
+    final cleaned = productName
         .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), ' ')
+        .replaceAll(RegExp(Constants.keywordCleanupPattern), ' ')
+        .trim();
+
+    return cleaned
         .split(RegExp(r'\s+'))
-        .where((word) => word.length >= 2 && !_stopWords.contains(word))
+        .where((word) => word.length > 1 && !Constants.stopWords.contains(word))
         .toSet();
   }
 
-  // Aggiorno contatore
+  // Aggiorno contatore prodotti abituali
   Future<void> recordProductInteraction(String productName) async {
     final cleanName = productName.trim().toLowerCase();
     if (cleanName.isEmpty) return;
@@ -42,7 +40,7 @@ class PreferencesService {
     for (final existingKey in counts.keys) {
       final existingKeywords = _extractKeywords(existingKey);
       final common = newKeywords.intersection(existingKeywords);
-      if (common.length >= 2 || existingKey == cleanName) { // Se hanno almeno 2 parole chiave in comune
+      if (common.length >= 2 || existingKey == cleanName) {
         keyToUpdate = existingKey;
         break;
       }
@@ -59,12 +57,38 @@ class PreferencesService {
 
     try {
       final Map<String, dynamic> decoded = jsonDecode(rawJson);
-      return decoded.map((key, value) => MapEntry(key, (value as num).toInt())); // Mappa prodotti
+      return decoded.map((key, value) => MapEntry(key, (value as num).toInt()));
     } catch (_) {
       return {};
     }
   }
-  // count del prodotto
+
+  // Aggiorno contatore supermercati frequenti
+  Future<void> recordStoreInteraction(String storeId) async {
+    final cleanId = storeId.trim();
+    if (cleanId.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final StoreCounts counts = await getStoreCounts();
+
+    counts[cleanId] = (counts[cleanId] ?? 0) + 1;
+    await prefs.setString(_keyStoreCounts, jsonEncode(counts));
+  }
+
+  Future<StoreCounts> getStoreCounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? rawJson = prefs.getString(_keyStoreCounts);
+    if (rawJson == null || rawJson.isEmpty) return {};
+
+    try {
+      final Map<String, dynamic> decoded = jsonDecode(rawJson);
+      return decoded.map((key, value) => MapEntry(key, (value as num).toInt()));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  // Score del singolo prodotto
   Future<int> getInteractionScore(String productName) async {
     final counts = await getProductCounts();
     return matchScoreInMap(productName, counts);
@@ -78,9 +102,9 @@ class PreferencesService {
     int maxScore = 0;
     for (final count in counts.entries) {
       final savedKeywords = _extractKeywords(count.key);
-      final common = targetKeywords.intersection(savedKeywords); // Restituisce nuovo insieme con solo parole presenti in entrambe
+      final common = targetKeywords.intersection(savedKeywords);
 
-      final int requiredMatch = targetKeywords.length == 1 ? 1 : 2; // In base da quante parole è composto il prodotto
+      final int requiredMatch = targetKeywords.length == 1 ? 1 : 2;
       if (common.length >= requiredMatch && count.value > maxScore) {
         maxScore = count.value;
       }
@@ -88,14 +112,16 @@ class PreferencesService {
     return maxScore;
   }
 
-  // Se è un prodotto abituale (minOccurrences variabile, default 1)
+  // Verifica se è un prodotto abituale (minOccurrences variabile, default 1)
   bool isHabitualInMap(String productName, ProductCounts counts, {int minOccurrences = 1}) {
     return matchScoreInMap(productName, counts) >= minOccurrences;
   }
 
+  // Cancello tutta la cronologia locale (prodotti e supermercati)
   Future<void> clearHistory() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyProductCounts);
+    await prefs.remove(_keyStoreCounts);
   }
 
   // TEMA
@@ -103,6 +129,7 @@ class PreferencesService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keyDarkMode) ?? false;
   }
+
   Future<void> setDarkMode(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyDarkMode, value);

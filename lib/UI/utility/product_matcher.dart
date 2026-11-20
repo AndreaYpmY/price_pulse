@@ -1,27 +1,18 @@
 import '../../model/objects/price_report.dart';
+import 'constants.dart';
 
 class ProductMatcher {
   ProductMatcher._();
 
-  static const Set<String> _stopWords = {
-    'il', 'lo', 'la', 'i', 'gli', 'le',
-    'un', 'uno', 'una',
-    'di', 'a', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra',
-    'al', 'allo', 'alla', 'ai', 'agli', 'alle',
-    'del', 'dello', 'della', 'dei', 'degli', 'delle',
-    'e', 'ed', 'o',
-  };
-
-  // Estraggo insieme di parole chiave pulite dal nome del prodotto
   static Set<String> extractKeywords(String productName) {
     final cleaned = productName
         .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\sàèéìòù]'), ' ')
+        .replaceAll(RegExp(Constants.keywordCleanupPattern), ' ')
         .trim();
 
     return cleaned
         .split(RegExp(r'\s+'))
-        .where((word) => word.length > 1 && !_stopWords.contains(word))
+        .where((word) => word.length > 1 && !Constants.stopWords.contains(word))
         .toSet();
   }
 
@@ -41,12 +32,12 @@ class ProductMatcher {
   // Cerco potenziali duplicati già segnalati nello stesso supermercato:
   // - Mantengo solo la segnalazione più recente per ogni nome distinto
   // - Ordino per rilevanza (più parole in comune in cima, poi data)
-  // - Limito ai primi [maxResults] risultati (default 5)
+  // - Limito ai primi [maxResults] risultati
   static List<PriceReport> findPotentialDuplicates({
     required String productName,
     required String storeId,
     required List<PriceReport> allReports,
-    int maxResults = 5,
+    int maxResults = Constants.maxDuplicateCandidates,
   }) {
     final targetKeywords = extractKeywords(productName);
     if (targetKeywords.isEmpty) return [];
