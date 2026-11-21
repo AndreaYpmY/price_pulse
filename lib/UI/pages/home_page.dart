@@ -41,12 +41,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   // 1 = Prodotto in un supermercato frequentato abitualmente dall'utente
   // 2 = Altri prodotti nei supermercati vicini
   int _getPriorityTier(
-    PriceReport report,
-    List<String> habitualProductKeys,
-    Set<String> habitualStoreIds
-  ) {
+      PriceReport report,
+      List<String> habitualProductKeys,
+      Set<String> habitualStoreIds
+      ) {
     final isHabitualProduct = habitualProductKeys.any(
-      (habitName) => ProductMatcher.areSimilar(habitName, report.productName),
+          (habitName) => ProductMatcher.areSimilar(habitName, report.productName),
     );
     if (isHabitualProduct) return 0;
 
@@ -56,11 +56,11 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   double? _calculateReportDistance(
-    PriceReport report,
-    Position? position,
-    Map<String, Store> storeById,
-    LocationService locationService
-  ) {
+      PriceReport report,
+      Position? position,
+      Map<String, Store> storeById,
+      LocationService locationService
+      ) {
     if (position == null) return null;
 
     final store = storeById[report.storeId];
@@ -70,10 +70,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (targetLat == 0 && targetLng == 0) return null;
 
     return locationService.calculateDistanceMeters(
-      position.latitude,
-      position.longitude,
-      targetLat,
-      targetLng
+        position.latitude,
+        position.longitude,
+        targetLat,
+        targetLng
     );
   }
 
@@ -214,12 +214,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                 prefixIcon: const Icon(Icons.search_rounded),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
                     : null,
                 filled: true,
                 fillColor: theme.colorScheme.surfaceContainerHighest
@@ -256,7 +256,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           else
             const SizedBox(height: 8),
 
-          // 4. Feed offerte in tempo reale da Firestore (filtrato per territorio e ordinato per rilevanza)
+          // 4. Feed offerte in tempo reale da Firestore (solo l'ultima versione per prodotto/negozio)
           Expanded(
             child: reportsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -274,9 +274,22 @@ class _HomePageState extends ConsumerState<HomePage> {
                 final habitualProductKeys = habitualProductCounts.keys.toList();
                 final habitualStoreIds = habitualStoreCounts.keys.toSet();
 
+                // Mantengo solo la segnalazione più recente per ogni coppia (supermercato + prodotto)
+                final Map<String, PriceReport> latestByStoreAndProduct = {};
+                for (final report in allReports) {
+                  final key =
+                      '${report.storeId}_${report.productName.trim().toLowerCase()}';
+                  final existing = latestByStoreAndProduct[key];
+                  if (existing == null ||
+                      report.createdAt.isAfter(existing.createdAt)) {
+                    latestByStoreAndProduct[key] = report;
+                  }
+                }
+                final latestReports = latestByStoreAndProduct.values.toList();
+
                 // Pre-calcola le distanze per ogni report una sola volta
                 final Map<String, double?> distanceByReportId = {
-                  for (final report in allReports)
+                  for (final report in latestReports)
                     report.id: _calculateReportDistance(
                       report,
                       position,
@@ -285,7 +298,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                 };
 
-                final filteredReports = allReports.where((report) {
+                final filteredReports = latestReports.where((report) {
                   // Filtro territoriale: mostra solo supermercati nel raggio di tot km (se GPS attivo)
                   final dist = distanceByReportId[report.id];
                   if (dist != null && dist > Constants.maxLocalRadiusMeters) {
@@ -363,12 +376,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                     itemBuilder: (context, index) {
                       final report = filteredReports[index];
 
-                      // Cerco la rilevazione cronologicamente precedente dello stesso articolo nello stesso negozio
-                      final originalIndex = allReports.indexOf(report);
-                      final olderReports = originalIndex >= 0 &&
-                              originalIndex + 1 < allReports.length
-                          ? allReports.sublist(originalIndex + 1)
-                          : <PriceReport>[];
+                      // Cerco la rilevazione cronologicamente precedente nello storico completo
+                      final olderReports = allReports
+                          .where(
+                            (r) =>
+                        r.id != report.id &&
+                            r.createdAt.isBefore(report.createdAt),
+                      )
+                          .toList();
 
                       final previousReport = ProductMatcher.findLatestReport(
                         productName: report.productName,

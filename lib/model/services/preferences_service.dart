@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:price_pulse/UI/utility/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,11 +8,24 @@ typedef ProductCounts = Map<String, int>;
 typedef StoreCounts = Map<String, int>;
 
 class PreferencesService {
+  static const String _keyDeviceId = 'device_id';
   static const String _keyProductCounts = 'habitual_product_counts';
   static const String _keyStoreCounts = 'habitual_store_counts';
   static const String _keyDarkMode = 'is_dark_mode';
   static const String _keyLanguage = 'language_code';
 
+  // Id anonimo persistente del dispositivo
+  Future<String> getDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = prefs.getString(_keyDeviceId);
+    if (existing != null && existing.isNotEmpty) {
+      return existing;
+    }
+    final generated =
+        'dev_${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(999999)}';
+    await prefs.setString(_keyDeviceId, generated);
+    return generated;
+  }
 
   // Pulisce testo: da "Pasta di Barilla 500g" diventa {"pasta", "barilla", "500g"}
   Set<String> _extractKeywords(String productName) {

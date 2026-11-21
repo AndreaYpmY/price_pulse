@@ -7,6 +7,7 @@ class PriceReport {
   final double lat;
   final double lng;
   final DateTime createdAt;
+  final String reporterId;
 
   PriceReport({
     required this.id,
@@ -16,7 +17,8 @@ class PriceReport {
     required this.storeName,
     required this.lat,
     required this.lng,
-    required this.createdAt
+    required this.createdAt,
+    this.reporterId = '',
   });
 
   // Per Firebase
@@ -29,6 +31,7 @@ class PriceReport {
       'lat': lat,
       'lng': lng,
       'createdAt': createdAt.millisecondsSinceEpoch,
+      'reporterId': reporterId,
     };
   }
 
@@ -45,6 +48,7 @@ class PriceReport {
       createdAt: DateTime.fromMillisecondsSinceEpoch(
         map['createdAt'] ?? DateTime.now().millisecondsSinceEpoch,
       ),
+      reporterId: map['reporterId'] ?? '',
     );
   }
 }
