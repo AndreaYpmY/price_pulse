@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../model/objects/price_report.dart';
+import '../../model/objects/store.dart';
 import '../../model/providers/providers.dart';
 import '../utility/app_localizations.dart';
+import '../utility/constants.dart';
 import '../utility/product_matcher.dart';
 import 'home_page.dart';
 import 'map_page.dart';
@@ -40,32 +42,67 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     });
   }
 
-  Future<void> _handleNewCommunityReport(
-      PriceReport newReport,
+  Future<void> _processNewCommunityReports(
+      List<PriceReport> newReports,
       List<PriceReport> allReports,
       ) async {
+    for (final report in newReports) {
+      await _handleNewCommunityReport(report, allReports);
+    }
+  }
+
+  Future<void> _handleNewCommunityReport(PriceReport newReport, List<PriceReport> allReports) async {
+    // 1. Verifico che gli avvisi siano attivi nelle Impostazioni
+    if (!ref.read(priceAlertsProvider)) {
+      return;
+    }
+
     final prefsService = ref.read(preferencesServiceProvider);
     final myId = _myDeviceId ?? await prefsService.getDeviceId();
 
-    // 1. Ignora le segnalazioni caricate da questo stesso dispositivo
+    // 2. Ignoro le segnalazioni caricate da questo stesso dispositivo
     if (newReport.reporterId.isNotEmpty && newReport.reporterId == myId) {
       return;
     }
 
-    // 2. Verifica se il prodotto rientra tra quelli abituali dell'utente corrente
+    // 3. Filtro geografico: considero solo supermercati entro il raggio locale (es. 20 km)
+    final position = ref.read(userLocationProvider).value;
+    if (position != null) {
+      final stores = ref.read(storesProvider).value ?? [];
+      Store? matchedStore;
+      for (final s in stores) {
+        if (s.id == newReport.storeId) {
+          matchedStore = s;
+          break;
+        }
+      }
+
+      final targetLat = matchedStore?.lat ?? newReport.lat;
+      final targetLng = matchedStore?.lng ?? newReport.lng;
+
+      if (targetLat != 0 || targetLng != 0) {
+        final distance = ref.read(locationServiceProvider).calculateDistanceMeters(
+          position.latitude,
+          position.longitude,
+          targetLat,
+          targetLng,
+        );
+        if (distance > Constants.maxLocalRadiusMeters) {
+          return;
+        }
+      }
+    }
+
+    // 4. Verifico se il prodotto rientra tra quelli abituali dell'utente corrente
     final habitualCounts = ref.read(habitualProductsProvider);
     if (!prefsService.isHabitualInMap(newReport.productName, habitualCounts)) {
       return;
     }
 
-    // 3. Confronta con l'ultima segnalazione precedente nello stesso supermercato
-    final olderReports = allReports
-        .where(
-          (r) =>
-      r.id != newReport.id &&
-          r.createdAt.isBefore(newReport.createdAt),
-    )
-        .toList();
+    // 5. Confronto con l'ultima segnalazione precedente e verifica il ribasso minimo (es. 5%)
+    final olderReports = allReports.where(
+          (r) => r.id != newReport.id && r.createdAt.isBefore(newReport.createdAt)
+    ).toList();
 
     final previousReport = ProductMatcher.findLatestReport(
       productName: newReport.productName,
@@ -73,7 +110,19 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       allReports: olderReports,
     );
 
-    if (previousReport == null || newReport.price >= previousReport.price) {
+    if (previousReport == null || previousReport.price <= 0) {
+      return;
+    }
+
+    // No notifiche per prezzi ribassati di poco
+    final dropRatio = (previousReport.price - newReport.price) / previousReport.price;
+    if (dropRatio < Constants.minPriceDropPercentage) {
+      return;
+    }
+
+    // 6. Controllo cooldown anti-spam (max 1 notifica ogni tot ore per prodotto)
+    final canNotify = await prefsService.canSendProductAlert(newReport.productName);
+    if (!canNotify) {
       return;
     }
 
@@ -85,6 +134,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       body:
       '${newReport.storeName}: € ${previousReport.price.toStringAsFixed(2)} → € ${newReport.price.toStringAsFixed(2)}',
     );
+
+    await prefsService.recordProductAlertSent(newReport.productName);
   }
 
   @override
@@ -96,7 +147,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       final reports = next.value;
       if (reports == null) return;
 
-      // Al primo caricamento memorizzo gli ID esistenti senza inviare notifiche storiche
+      // Al primo caricamento memorizzo gli ID
       if (_knownReportIds == null) {
         _knownReportIds = reports.map((r) => r.id).toSet();
         return;
@@ -108,8 +159,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
       _knownReportIds = reports.map((r) => r.id).toSet();
 
-      for (final report in newReports) {
-        _handleNewCommunityReport(report, reports);
+      if (newReports.isNotEmpty) {
+        _processNewCommunityReports(newReports, reports);
       }
     });
 

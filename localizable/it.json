@@ -45,5 +45,7 @@
   "location_denied": "Permesso di localizzazione negato",
   "location_permanently_denied": "Permesso GPS negato permanentemente dalle impostazioni",
   "price_drop": "In calo",
-  "price_rise": "In aumento"
+  "price_rise": "In aumento",
+  "price_alerts_setting": "Avvisi ribassi",
+  "price_alerts_subtitle": "Notifica quando un prodotto abituale scende di prezzo vicino a te"
 }

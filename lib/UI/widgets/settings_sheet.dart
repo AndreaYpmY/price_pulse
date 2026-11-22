@@ -28,6 +28,7 @@ class SettingsSheet extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
     final habitualCounts = ref.watch(habitualProductsProvider);
+    final priceAlertsEnabled = ref.watch(priceAlertsProvider);
 
     final isDark = themeMode == ThemeMode.dark;
     final hasHistory = habitualCounts.isNotEmpty;
@@ -62,9 +63,26 @@ class SettingsSheet extends ConsumerWidget {
               },
             ),
 
+            // 2. Switch Avvisi ribassi prodotti abituali
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: Icon(
+                priceAlertsEnabled
+                    ? Icons.notifications_active_rounded
+                    : Icons.notifications_off_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              title: Text(loc.translate('price_alerts_setting')),
+              subtitle: Text(loc.translate('price_alerts_subtitle')),
+              value: priceAlertsEnabled,
+              onChanged: (_) {
+                ref.read(priceAlertsProvider.notifier).toggleAlerts();
+              },
+            ),
+
             const SizedBox(height: 8),
 
-            // 2. Selettore Lingua (IT / EN)
+            // 3. Selettore Lingua (IT / EN)
             Row(
               children: [
                 Icon(
@@ -99,7 +117,7 @@ class SettingsSheet extends ConsumerWidget {
               child: Divider(),
             ),
 
-            // 3. Tasto Privacy: Azzera cronologia acquisti abituali
+            // 4. Tasto Privacy: Azzera cronologia acquisti abituali
             ListTile(
               contentPadding: EdgeInsets.zero,
               enabled: hasHistory,

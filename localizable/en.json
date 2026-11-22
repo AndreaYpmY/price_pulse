@@ -45,5 +45,7 @@
   "location_denied": "Location permission denied",
   "location_permanently_denied": "GPS permission permanently denied in settings",
   "price_drop": "Price drop",
-  "price_rise": "Price rise"
+  "price_rise": "Price rise",
+  "price_alerts_setting": "Price drop alerts",
+  "price_alerts_subtitle": "Notify when a habitual product drops in price nearby"
 }

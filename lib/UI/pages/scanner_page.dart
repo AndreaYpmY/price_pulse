@@ -136,6 +136,189 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
     return '${(meters / 1000).toStringAsFixed(1)} km';
   }
 
+  String _buildStoreLabel(
+      Store store,
+      Position? position,
+      LocationService locationService,
+      ) {
+    if (position == null) return store.name;
+    final dist = locationService.calculateDistanceMeters(
+      position.latitude,
+      position.longitude,
+      store.lat,
+      store.lng,
+    );
+    return '${store.name} (${_formatDistanceBadge(dist)})';
+  }
+
+  // Apre pannello ricercabile per scegliere il supermercato (ordinato dal più vicino)
+  Future<String?> _openStoreSearchPicker({
+    required List<Store> sortedStores,
+    required String? currentStoreId,
+    required Position? position,
+    required LocationService locationService,
+    required AppLocalizations loc,
+  }) {
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        String searchQuery = '';
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final theme = Theme.of(context);
+            final queryLower = searchQuery.toLowerCase();
+            final filteredStores = queryLower.isEmpty
+                ? sortedStores
+                : sortedStores
+                .where((s) => s.name.toLowerCase().contains(queryLower))
+                .toList();
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.65,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: Text(
+                        loc.translate('select_store'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextField(
+                        onChanged: (value) {
+                          setSheetState(() => searchQuery = value.trim());
+                        },
+                        decoration: InputDecoration(
+                          hintText: loc.translate('search_hint'),
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: searchQuery.isNotEmpty
+                              ? IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () {
+                              setSheetState(() => searchQuery = '');
+                            },
+                          )
+                              : null,
+                          filled: true,
+                          fillColor: theme.colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.45),
+                          contentPadding:
+                          const EdgeInsets.symmetric(vertical: 0),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: filteredStores.isEmpty
+                          ? Center(
+                        child: Text(
+                          loc.translate('no_results'),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                          : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
+                        itemCount: filteredStores.length,
+                        separatorBuilder: (_, _) =>
+                        const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final store = filteredStores[index];
+                          final isSelected = store.id == currentStoreId;
+                          final distanceText = position != null
+                              ? _formatDistanceBadge(
+                            locationService.calculateDistanceMeters(
+                              position.latitude,
+                              position.longitude,
+                              store.lat,
+                              store.lng,
+                            ),
+                          )
+                              : null;
+
+                          return ListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            selected: isSelected,
+                            selectedTileColor: theme
+                                .colorScheme.primaryContainer
+                                .withValues(alpha: 0.4),
+                            leading: Icon(
+                              isSelected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.storefront_rounded,
+                              color: isSelected
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
+                            ),
+                            title: Text(
+                              store.name,
+                              style: TextStyle(
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                            trailing: distanceText != null
+                                ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme
+                                    .secondaryContainer,
+                                borderRadius:
+                                BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                distanceText,
+                                style: theme.textTheme.labelSmall
+                                    ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: theme.colorScheme
+                                      .onSecondaryContainer,
+                                ),
+                              ),
+                            )
+                                : null,
+                            onTap: () =>
+                                Navigator.of(sheetContext).pop(store.id),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _submitReport(List<Store> stores) async {
     final loc = AppLocalizations.of(context)!;
 
@@ -430,7 +613,7 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
             ),
             const SizedBox(height: 16),
 
-            // Selezione Supermercato (ordinato dal più vicino tramite GPS)
+            // Selezione Supermercato (ordinato dal più vicino tramite GPS + barra di ricerca)
             storesAsync.when(
               loading: () => const Center(
                 child: Padding(
@@ -447,49 +630,71 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
                   );
                 }
 
-                return DropdownButtonFormField<String>(
+                Store? selectedStore;
+                if (validSelectedStoreId != null) {
+                  for (final s in sortedStores) {
+                    if (s.id == validSelectedStoreId) {
+                      selectedStore = s;
+                      break;
+                    }
+                  }
+                }
+
+                return FormField<String>(
                   key: ValueKey(validSelectedStoreId ?? 'no_store'),
                   initialValue: validSelectedStoreId,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: loc.translate('select_store'),
-                    prefixIcon: const Icon(Icons.store_mall_directory_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  items: sortedStores.map((store) {
-                    String label = store.name;
-                    if (position != null) {
-                      final dist = locationService.calculateDistanceMeters(
-                        position.latitude,
-                        position.longitude,
-                        store.lat,
-                        store.lng,
-                      );
-                      label = '${store.name} (${_formatDistanceBadge(dist)})';
-                    }
-                    return DropdownMenuItem<String>(
-                      value: store.id,
-                      child: Text(
-                        label,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: _isSaving
-                      ? null
-                      : (newId) {
-                    setState(() {
-                      _hasUserSelectedStore = true;
-                      _selectedStoreId = newId;
-                    });
-                  },
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return loc.translate('all_fields_required');
                     }
                     return null;
+                  },
+                  builder: (fieldState) {
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: _isSaving
+                          ? null
+                          : () async {
+                        final pickedId = await _openStoreSearchPicker(
+                          sortedStores: sortedStores,
+                          currentStoreId: validSelectedStoreId,
+                          position: position,
+                          locationService: locationService,
+                          loc: loc,
+                        );
+                        if (pickedId != null && mounted) {
+                          fieldState.didChange(pickedId);
+                          setState(() {
+                            _hasUserSelectedStore = true;
+                            _selectedStoreId = pickedId;
+                          });
+                        }
+                      },
+                      child: InputDecorator(
+                        isEmpty: selectedStore == null,
+                        decoration: InputDecoration(
+                          labelText: loc.translate('select_store'),
+                          prefixIcon:
+                          const Icon(Icons.store_mall_directory_outlined),
+                          suffixIcon: const Icon(Icons.search_rounded),
+                          errorText: fieldState.errorText,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          selectedStore != null
+                              ? _buildStoreLabel(
+                            selectedStore,
+                            position,
+                            locationService,
+                          )
+                              : '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    );
                   },
                 );
               },

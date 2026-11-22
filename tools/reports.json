@@ -1,0 +1,26 @@
+[
+  {
+    "_test": "Test A - Ribasso minimo del 2.5% (da 2.00 a 1.95, sotto soglia 5%): aggiorna card in Home ma NON invia notifica",
+    "productName": "Pasta Barilla Spaghetti n.5 500g",
+    "price": 1.95,
+    "storeId": "osm_node_11804802532"
+  },
+  {
+    "_test": "Test B - Ribasso reale > 5% (da 1.95 a 1.50): aggiorna card in Home e INVIA notifica",
+    "productName": "Pasta Barilla Spaghetti n.5 500g",
+    "price": 1.5,
+    "storeId": "osm_node_11804802532"
+  },
+  {
+    "_test": "Test C - Cooldown 24h attivo (da 1.50 a 1.10): aggiorna card in Home ma BLOCCA la seconda notifica",
+    "productName": "Pasta Barilla Spaghetti n.5 500g",
+    "price": 1.1,
+    "storeId": "osm_node_11804802532"
+  },
+  {
+    "_test": "Test D - Filtro geografico > 20 km (Milano): nessuna notifica e nessuna card nel feed locale",
+    "productName": "Latte Granarolo Parzialmente Scremato 1L",
+    "price": 0.89,
+    "storeId": "osm_node_1166766333"
+  }
+]

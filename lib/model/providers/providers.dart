@@ -39,11 +39,11 @@ final userLocationProvider = FutureProvider<Position?>((ref) async {
 
 // ----------------------------------------------------------------------------------------------------
 
-// SETTINGS & HABITS NOTIFIERS (Tema, Lingua e Cronologia Abituali)
+// SETTINGS & HABITS NOTIFIERS (Tema, Lingua, Notifiche e Cronologia Prodotti Abituali)
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   final PreferencesService _prefs;
 
-  ThemeModeNotifier(this._prefs) : super(ThemeMode.light) {
+  ThemeModeNotifier(this._prefs) : super(Constants.defaultDarkMode ? ThemeMode.dark : ThemeMode.light) {
     _load();
   }
 
@@ -63,10 +63,12 @@ final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((r
   return ThemeModeNotifier(ref.watch(preferencesServiceProvider));
 });
 
+// -----------------------------
+
 class LocaleNotifier extends StateNotifier<Locale> {
   final PreferencesService _prefs;
 
-  LocaleNotifier(this._prefs) : super(const Locale('it')) {
+  LocaleNotifier(this._prefs) : super(const Locale(Constants.defaultLanguageCode)) {
     _load();
   }
 
@@ -84,6 +86,32 @@ class LocaleNotifier extends StateNotifier<Locale> {
 final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {
   return LocaleNotifier(ref.watch(preferencesServiceProvider));
 });
+
+// -----------------------------
+
+class PriceAlertsNotifier extends StateNotifier<bool> {
+  final PreferencesService _prefs;
+
+  PriceAlertsNotifier(this._prefs) : super(Constants.defaultPriceAlertsEnabled) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    state = await _prefs.arePriceAlertsEnabled();
+  }
+
+  Future<void> toggleAlerts() async {
+    final next = !state;
+    state = next;
+    await _prefs.setPriceAlertsEnabled(next);
+  }
+}
+
+final priceAlertsProvider = StateNotifierProvider<PriceAlertsNotifier, bool>((ref) {
+  return PriceAlertsNotifier(ref.watch(preferencesServiceProvider));
+});
+
+// -----------------------------
 
 class HabitualStoresNotifier extends StateNotifier<StoreCounts> { // Supermercati
   final PreferencesService _prefs;
