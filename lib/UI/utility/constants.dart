@@ -1,7 +1,10 @@
+import 'package:latlong2/latlong.dart';
+
 class Constants {
   Constants._();
 
   static const String appName = 'PricePulse';
+  static const String appIcon = 'assets/icon/icon.png';
   static const String defaultLanguageCode = 'it'; // Lingua predefinita
   static const bool defaultDarkMode = false; // Tema chiaro predefinito
 
@@ -27,4 +30,7 @@ class Constants {
   static const double minPriceDropPercentage = 0.05;  // Ribasso minimo del 5%
   static const int notificationCooldownHours = 24;    // Max 1 notifica ogni 24h per prodotto
   static const bool defaultPriceAlertsEnabled = true; // Avvisi ribassi attivi di default
+
+  static const LatLng defaultCenter = LatLng(39.3350, 16.2450); // Cosenza / Rende di default come posizione
+  static const double defaultZoom = 13.5; // default zoom per la mappa
 }

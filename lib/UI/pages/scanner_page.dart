@@ -256,55 +256,57 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
                           )
                               : null;
 
-                          return ListTile(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            selected: isSelected,
-                            selectedTileColor: theme
-                                .colorScheme.primaryContainer
-                                .withValues(alpha: 0.4),
-                            leading: Icon(
-                              isSelected
-                                  ? Icons.check_circle_rounded
-                                  : Icons.storefront_rounded,
-                              color: isSelected
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
-                            title: Text(
-                              store.name,
-                              style: TextStyle(
-                                fontWeight: isSelected
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
+                          return Material(
+                            type: MaterialType.transparency,
+                            borderRadius: BorderRadius.circular(12),
+                            child: ListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ),
-                            trailing: distanceText != null
-                                ? Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
+                              selected: isSelected,
+                              selectedTileColor: theme
+                                  .colorScheme.primaryContainer
+                                  .withValues(alpha: 0.4),
+                              leading: Icon(
+                                isSelected
+                                    ? Icons.check_circle_rounded
+                                    : Icons.storefront_rounded,
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
                               ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme
-                                    .secondaryContainer,
-                                borderRadius:
-                                BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                distanceText,
-                                style: theme.textTheme.labelSmall
-                                    ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: theme.colorScheme
-                                      .onSecondaryContainer,
+                              title: Text(
+                                store.name,
+                                style: TextStyle(
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
                                 ),
                               ),
-                            )
-                                : null,
-                            onTap: () =>
-                                Navigator.of(sheetContext).pop(store.id),
+                              trailing: distanceText != null
+                                  ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme
+                                      .secondaryContainer,
+                                  borderRadius:
+                                  BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  distanceText,
+                                  style: theme.textTheme.labelSmall
+                                      ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: theme.colorScheme
+                                        .onSecondaryContainer,
+                                  ),
+                                ),
+                              ) : null,
+                              onTap: () => Navigator.of(sheetContext).pop(store.id),
+                            ),
                           );
                         },
                       ),

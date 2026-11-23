@@ -186,9 +186,25 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          loc.translate('app_name'),
-          style: const TextStyle(fontWeight: FontWeight.w800),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                Constants.appIcon,
+                width: 28,
+                height: 28,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const Icon(Icons.local_offer_rounded, size: 24), //in caso di errore del logo visualizza icona
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              loc.translate('app_name'),
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ],
         ),
         actions: [
           IconButton(
